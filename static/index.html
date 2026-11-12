@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>qBittorrent Tools</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <div class="brand">qBit<span>Tools</span></div>
+  <nav id="tabs" class="hidden">
+    <button class="tab active" data-tab="torrents">Torrents</button>
+    <button class="tab" data-tab="rewrite">Réécriture</button>
+    <button class="tab" data-tab="actions">Actions</button>
+    <button class="tab" data-tab="history">Historique</button>
+  </nav>
+  <div class="head-right">
+    <span id="conn-dot" class="dot"></span>
+    <span id="conn-status">hors ligne</span>
+    <button id="btn-disconnect" class="btn ghost hidden">Déconnecter</button>
+  </div>
+</header>
+
+<main>
+  <!-- ===== Connexion ===== -->
+  <section id="connect-card" class="card connect">
+    <h1>Connexion</h1>
+    <p class="sub">qBittorrent Web UI</p>
+    <div class="grid">
+      <label>Hôte<input id="qb-host" value="127.0.0.1"></label>
+      <label>Port<input id="qb-port" type="number" value="8080"></label>
+      <label>Utilisateur<input id="qb-user" value="user"></label>
+      <label>Mot de passe<input id="qb-pass" type="password"></label>
+    </div>
+    <button id="btn-connect" class="btn primary block">Se connecter</button>
+    <div id="connect-msg"></div>
+  </section>
+
+  <!-- ===== Module : Torrents ===== -->
+  <section id="mod-torrents" class="module hidden">
+    <div class="toolbar">
+      <input id="f-search" placeholder="Rechercher…">
+      <details class="filters-wrap">
+        <summary>Filtres</summary>
+        <div class="filters">
+          <div>
+            <div class="f-title">Catégories</div>
+            <div id="f-cats" class="checks"></div>
+          </div>
+          <div>
+            <div class="f-title">Tags</div>
+            <div id="f-tags" class="checks"></div>
+          </div>
+        </div>
+      </details>
+      <span id="sel-count" class="pill">0</span>
+      <button id="btn-select-filtered" class="btn sm">Tout cocher</button>
+      <button id="btn-select-page" class="btn sm">Page</button>
+      <button id="btn-clear" class="btn sm ghost">Effacer</button>
+      <button id="btn-scan" class="btn sm">Analyser</button>
+    </div>
+
+    <div class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th class="c-check"><input type="checkbox" id="chk-all"></th>
+            <th data-sort="name">Nom</th><th data-sort="category">Catégorie</th><th>Tags</th>
+            <th class="num" data-sort="n_trackers">Trackers</th><th class="num" data-sort="size">Taille</th><th class="num" data-sort="progress">Prog.</th><th data-sort="state">État</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div id="empty-msg" class="empty hidden">Aucun torrent</div>
+    </div>
+
+    <div class="pager">
+      <div class="pager-info" id="pager-info"></div>
+      <div class="pager-controls" id="pager-controls"></div>
+      <select id="page-size" class="btn sm">
+        <option value="25">25 / page</option>
+        <option value="50" selected>50 / page</option>
+        <option value="100">100 / page</option>
+        <option value="250">250 / page</option>
+      </select>
+    </div>
+  </section>
+
+  <!-- ===== Module : Réécriture ===== -->
+  <section id="mod-rewrite" class="module hidden">
+    <div class="module-head">
+      <h2>Réécriture d'URL de trackers</h2>
+      <p class="sub">Règles appliquées dans l'ordre à chaque URL de tracker des torrents sélectionnés.
+      « Chercher » = texte littéral, ou regex si coché (groupes <code>\1</code>…).
+      Remplacer vide = suppression.</p>
+    </div>
+    <div id="rules-list" class="rules"></div>
+    <div class="rule-actions">
+      <button id="btn-add-rule" class="btn sm">+ Règle</button>
+      <span class="spacer"></span>
+      <button id="btn-preview" class="btn sm">Prévisualiser</button>
+      <label class="chk"><input type="checkbox" id="opt-dry"> Dry-run</label>
+      <button id="btn-apply" class="btn primary">Appliquer</button>
+    </div>
+    <div id="preview-box" class="hidden">
+      <div id="preview-summary" class="sub"></div>
+      <div class="table-card small">
+        <table>
+          <thead><tr><th>Torrent</th><th>Avant</th><th>Après</th></tr></thead>
+          <tbody id="preview-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="module-head" style="margin-top:28px">
+      <h2>Atelier de règles</h2>
+      <p class="sub">Teste tes règles sur une URL d'exemple — résultat instantané.</p>
+    </div>
+    <div class="playground">
+      <input id="pg-url" placeholder="https://tracker.example.com/announce/…" spellcheck="false">
+      <div id="pg-out" class="pg-out">—</div>
+    </div>
+  </section>
+
+  <!-- ===== Module : Actions ===== -->
+  <section id="mod-actions" class="module hidden">
+    <div class="module-head">
+      <h2>Actions groupées</h2>
+      <p class="sub">Appliquées aux <span id="action-count">0</span> torrent(s) sélectionné(s) dans l'onglet Torrents.</p>
+    </div>
+    <div class="action-grid">
+      <button class="action-card" data-action="reannounce">
+        <span class="action-title">Re-announce</span>
+        <span class="action-desc">Force une nouvelle annonce aux trackers</span>
+      </button>
+      <button class="action-card" data-action="recheck">
+        <span class="action-title">Re-vérifier</span>
+        <span class="action-desc">Recheck des fichiers sur disque</span>
+      </button>
+      <button class="action-card" data-action="pause">
+        <span class="action-title">Pause</span>
+        <span class="action-desc">Met en pause les téléchargements</span>
+      </button>
+      <button class="action-card" data-action="resume">
+        <span class="action-title">Reprendre</span>
+        <span class="action-desc">Reprend les torrents en pause</span>
+      </button>
+      <button class="action-card danger" data-action="stop">
+        <span class="action-title">Stop</span>
+        <span class="action-desc">Arrête complètement les torrents</span>
+      </button>
+      <button class="action-card danger" data-action="delete" data-param>
+        <span class="action-title">Supprimer</span>
+        <span class="action-desc">Retire les torrents de qBittorrent</span>
+      </button>
+      <button class="action-card" data-action="setCategory" data-param>
+        <span class="action-title">Catégorie</span>
+        <span class="action-desc">Assigne une catégorie aux torrents</span>
+      </button>
+      <button class="action-card" data-action="setLocation" data-param>
+        <span class="action-title">Dossier</span>
+        <span class="action-desc">Change le dossier de téléchargement</span>
+      </button>
+      <button class="action-card" data-action="addTrackers" data-param>
+        <span class="action-title">Ajouter tracker(s)</span>
+        <span class="action-desc">Ajoute des URLs de trackers</span>
+      </button>
+      <button class="action-card" data-action="removeTrackers" data-param>
+        <span class="action-title">Retirer tracker(s)</span>
+        <span class="action-desc">Retire des URLs de trackers</span>
+      </button>
+    </div>
+
+    <div id="param-panel" class="param-panel hidden">
+      <div class="param-title" id="param-title"></div>
+      <div id="param-fields"></div>
+      <div class="row wrap">
+        <button id="param-run" class="btn primary">Exécuter</button>
+        <button id="param-cancel" class="btn ghost">Annuler</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Module : Historique ===== -->
+  <section id="mod-history" class="module hidden">
+    <div class="module-head"><h2>Historique</h2></div>
+    <div id="history-list" class="history-list"></div>
+  </section>
+
+  <!-- ===== Job (global) ===== -->
+  <section id="job-card" class="card hidden">
+    <div id="job-bar">
+      <div class="progress"><div id="job-fill"></div></div>
+      <div id="job-text"></div>
+    </div>
+    <pre id="job-log"></pre>
+  </section>
+</main>
+
+<!-- ===== Modal trackers ===== -->
+<div id="modal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span id="modal-title"></span>
+      <button id="modal-close" class="btn sm ghost">✕</button>
+    </div>
+    <pre id="modal-body"></pre>
+  </div>
+</div>
+
+<!-- ===== Modal torrent détaillé ===== -->
+<div id="detail-modal" class="modal hidden">
+  <div class="modal-box wide">
+    <div class="modal-head">
+      <span id="detail-title"></span>
+      <button id="detail-close" class="btn sm ghost">✕</button>
+    </div>
+    <div class="detail-tabs">
+      <button class="dtab active" data-dtab="info">Infos</button>
+      <button class="dtab" data-dtab="trackers">Trackers</button>
+      <button class="dtab" data-dtab="files">Fichiers</button>
+    </div>
+    <div id="detail-body" class="detail-body"></div>
+  </div>
+</div>
+
+<!-- ===== Confirm modal ===== -->
+<div id="confirm-modal" class="modal hidden">
+  <div class="modal-box confirm-box">
+    <div class="modal-head"><span id="confirm-title">Confirmer</span></div>
+    <div id="confirm-msg" class="confirm-msg"></div>
+    <div id="confirm-extra" class="confirm-extra"></div>
+    <div class="confirm-btns">
+      <button id="confirm-no" class="btn ghost">Annuler</button>
+      <button id="confirm-yes" class="btn primary">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
